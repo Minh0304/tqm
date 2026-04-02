@@ -3,74 +3,809 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MyVocabApp - Ultimate Version</title>
+    <title>MyVocabApp</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
     <style>
         :root { 
             --bg-body: #0f172a; --bg-surface: #1e293b; --primary: #38bdf8; 
             --primary-hover: #0ea5e9; --secondary: #10b981; --text-main: #f8fafc;
-            --text-dim: #94a3b8; --wrong: #f43f5e;
+            --text-dim: #94a3b8; --correct: #10b981; --wrong: #f43f5e;
+            --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
             --glass: rgba(30, 41, 59, 0.7);
         }
+
         * { box-sizing: border-box; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
         body { font-family: 'Plus Jakarta Sans', sans-serif; background: radial-gradient(circle at top left, #1e293b, #0f172a); color: var(--text-main); margin: 0; min-height: 100vh; line-height: 1.6; }
-        .container { max-width: 1000px; margin: 0 auto; padding: 40px 20px; }
-        .page { display: none; animation: pageEnter 0.4s ease forwards; }
+        .container { max-width: 1000px; margin: 0 auto; padding: 60px 20px; }
+        .page { display: none; animation: pageEnter 0.5s ease forwards; }
         .page.active { display: block; }
         @keyframes pageEnter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        
-        .glass-card { background: var(--glass); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 24px; padding: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
-        input, textarea { width: 100%; padding: 15px; border-radius: 12px; border: 2px solid rgba(255, 255, 255, 0.05); background: rgba(15, 23, 42, 0.6); color: white; outline: none; margin-bottom: 10px; }
-        input:focus { border-color: var(--primary); }
 
-        .btn-base { padding: 12px 24px; border-radius: 12px; border: none; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-family: inherit; }
-        .btn-primary { background: var(--primary); color: #0f172a; }
+        .top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 50px; }
+        .logo { font-size: 1.8rem; font-weight: 800; color: white; margin: 0; letter-spacing: -1px; }
+        .logo span { color: var(--primary); }
+
+        .glass-card { background: var(--glass); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 28px; padding: 32px; box-shadow: var(--card-shadow); }
+        input, textarea { width: 100%; padding: 18px 24px; border-radius: 16px; border: 2px solid rgba(255, 255, 255, 0.05); background: rgba(15, 23, 42, 0.6); color: white; outline: none; font-size: 1rem; font-family: inherit; }
+        input:focus { border-color: var(--primary); background: rgba(15, 23, 42, 0.8); }
+/* Hiệu ứng đổ bóng đứng yên, không nhấp nháy */
+.btn-cambridge-glow {
+    background: var(--primary) !important;
+    color: #0f172a !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.5px;
+    border: none;
+    /* Đổ bóng Neon cố định */
+    box-shadow: 0 4px 15px rgba(56, 189, 248, 0.4); 
+    text-transform: uppercase;
+    transition: all 0.3s ease;
+}
+
+.btn-cambridge-glow:hover {
+    /* Chỉ phát sáng mạnh hơn khi di chuột vào */
+    box-shadow: 0 0 25px rgba(56, 189, 248, 0.7);
+    transform: translateY(-2px);
+}
+        .btn-base { padding: 14px 28px; border-radius: 14px; border: none; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 10px; text-decoration: none; font-size: 0.95rem; font-family: inherit; }
+        .btn-primary { background: var(--primary); color: #0f172a; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.3); }
+        .btn-primary:hover { transform: translateY(-2px); background: var(--primary-hover); }
         .btn-outline { background: transparent; color: white; border: 1px solid rgba(255, 255, 255, 0.2); }
-        
-        .folder-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; margin-top: 25px; }
-        .folder-item { cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.05); position: relative; }
-        .folder-item:hover { border-color: var(--primary); transform: translateY(-5px); }
-        
-        .manual-input-row { display: grid; grid-template-columns: 1fr 1.5fr auto; gap: 10px; margin-bottom: 12px; align-items: center; background: rgba(255,255,255,0.02); padding: 12px; border-radius: 14px; }
-        .btn-remove-row { background: rgba(244, 63, 94, 0.1); color: var(--wrong); width: 35px; height: 35px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; }
-        
-        .tab-group { display: inline-flex; background: rgba(0, 0, 0, 0.2); padding: 5px; border-radius: 12px; margin-bottom: 20px; }
-        .tab-btn { padding: 8px 20px; border-radius: 8px; border: none; background: transparent; color: var(--text-dim); cursor: pointer; font-weight: 600; }
-        .tab-btn.active { background: var(--bg-surface); color: var(--primary); }
+        .btn-outline:hover { background: rgba(255, 255, 255, 0.05); }
 
-        .count-pill { font-size: 0.7rem; font-weight: 800; background: rgba(56, 189, 248, 0.15); padding: 4px 10px; border-radius: 10px; color: var(--primary); }
-    </style>
+        .dict-result { margin-top: 30px; animation: fadeIn 0.4s ease; }
+        .word-title { font-size: 2.8rem; font-weight: 800; margin: 0; background: linear-gradient(to right, #fff, var(--primary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .ipa-tag { color: var(--primary); font-family: monospace; font-size: 1.2rem; background: rgba(56, 189, 248, 0.1); padding: 4px 12px; border-radius: 8px; display: inline-block; margin: 10px 0; }
+
+        .library-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 24px; }
+        .folder-item { cursor: pointer; padding: 24px !important; border: 1px solid rgba(255, 255, 255, 0.05); }
+        .folder-item:hover { border-color: var(--primary); transform: translateY(-5px); }
+        .count-pill { font-size: 0.7rem; font-weight: 800; background: rgba(56, 189, 248, 0.15); padding: 5px 12px; border-radius: 20px; color: var(--primary); text-transform: uppercase; letter-spacing: 1px; }
+
+        /* --- PHẦN CSS: DÁN ĐÈ VÀO ĐOẠN CŨ --- */
+.manual-input-row { 
+    display: grid; 
+    grid-template-columns: 1fr 1.5fr auto; /* Cho ô nghĩa rộng hơn */
+    gap: 15px; 
+    margin-bottom: 15px; 
+    align-items: start; /* Căn lề trên để phù hợp với textarea */
+    background: rgba(255,255,255,0.02);
+    padding: 12px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.05);
+}
+.manual-input-row textarea.m-val {
+    min-height: 45px;
+    height: 45px;
+    padding: 10px 15px;
+    resize: vertical; /* Cho phép người dùng kéo giãn chiều cao nếu cần */
+}
+
+.btn-remove-row { 
+    background: rgba(244, 63, 94, 0.1); 
+    border: none; 
+    color: var(--wrong); 
+    width: 42px; 
+    height: 42px; 
+    border-radius: 12px; 
+    cursor: pointer; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; /* Căn giữa dấu X vào chính giữa nút */
+    font-size: 1.2rem; 
+    font-weight: 700;
+    line-height: 1;
+    padding: 0;
+}
+
+.btn-remove-row:hover { 
+    background: var(--wrong); 
+    color: white; 
+}
+        .tab-group { display: inline-flex; background: rgba(0, 0, 0, 0.2); padding: 6px; border-radius: 14px; margin-bottom: 24px; }
+        .tab-btn { padding: 10px 24px; border-radius: 10px; border: none; background: transparent; color: var(--text-dim); cursor: pointer; font-weight: 600; font-family: inherit; }
+        .tab-btn.active { background: var(--bg-surface); color: var(--primary); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); }
+
+        .quiz-progress-outer { height: 8px; background: rgba(255, 255, 255, 0.05); border-radius: 10px; flex-grow: 1; margin: 0 20px; overflow: hidden; }
+        .quiz-progress-inner { 
+    height: 100%; 
+    background: linear-gradient(90deg, #38bdf8, #818cf8, #38bdf8);
+    background-size: 200% auto;
+    width: 0%; 
+    border-radius: 10px;
+    box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: shine 3s linear infinite;
+}
+
+@keyframes shine {
+    to { background-position: 200% center; }
+}
+        /* Tìm và dán đè đoạn này vào CSS của bạn */
+/* 1. Cỡ chữ câu hỏi: nhỏ lại và cho phép xuống dòng */
+.question-text {
+    font-size: 2rem; 
+    font-weight: 700;
+    color: white;
+    margin-bottom: 30px;
+    white-space: pre-wrap; /* Quan trọng: Giữ nguyên các dấu xuống dòng */
+    word-wrap: break-word;
+    line-height: 1.4;
+    text-align: center;
+}
+
+/* 2. Dấu X xóa dòng: Căn giữa tuyệt đối */
+.manual-input-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 12px;
+    margin-bottom: 12px;
+    align-items: center; /* Căn giữa hàng */
+}
+
+.btn-remove-row {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(244, 63, 94, 0.1);
+    color: var(--wrong);
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 0;
+}
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .option-card { 
+    padding: 25px; 
+    border-radius: 20px; 
+    background: rgba(255, 255, 255, 0.03); 
+    border: 1px solid rgba(255, 255, 255, 0.1); 
+    border-bottom: 5px solid rgba(0, 0, 0, 0.3);
+    color: white; 
+    font-size: 1.1rem; 
+    font-weight: 600; 
+    cursor: pointer; 
+    position: relative;
+    text-align: center;
+}
+
+.option-card:hover:not(:disabled) { 
+    background: rgba(255, 255, 255, 0.08); 
+    transform: translateY(-2px);
+}
+
+.option-card:active:not(:disabled) {
+    transform: translateY(2px);
+    border-bottom-width: 1px;
+}
+        .option-card:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.2); }
+        .correct { background: var(--secondary) !important; border-color: transparent !important; box-shadow: 0 0 20px rgba(16, 185, 129, 0.4); }
+        .wrong { background: var(--wrong) !important; border-color: transparent !important; box-shadow: 0 0 20px rgba(244, 63, 94, 0.4); }
+/* Hiệu ứng cho đáp án hiện bên dưới khi sai */
+.hint-text {
+    margin-top: 15px;
+    font-size: 1.1rem;
+    color: #f43f5e; /* Màu đỏ của biến --wrong */
+    font-weight: 600;
+    animation: fadeIn 0.3s ease;
+    text-align: center;
+}
+
+/* Hiệu ứng rung nhẹ khi nhập sai */
+.shake {
+    animation: shake 0.4s ease-in-out;
+    border-bottom: 3px solid #f43f5e !important;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-10px); }
+    75% { transform: translateX(10px); }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}    
+</style>
 </head>
 <body>
 
-<div class="container">
-    <div id="page-home" class="page active">
-        <div class="glass-card" style="margin-bottom: 40px;">
-            <h2 style="margin-top:0; color: var(--primary);">TỪ ĐIỂN NHANH</h2>
-            <div style="display:flex; gap:10px;">
-                <input type="text" id="search-input" placeholder="Nhập từ cần tra..." onkeypress="if(event.key==='Enter') searchWord()">
-                <button class="btn-base btn-primary" onclick="searchWord()">TRA TỪ</button>
-            </div>
-            <div id="dict-result" style="margin-top:20px; display:none;"></div>
+    <div class="container">
+        <div id="page-home" class="page active">
+    <div class="glass-card" style="margin-bottom: 30px; border: 1px solid rgba(56, 189, 248, 0.2);">
+        <div class="section-header">
+            <h2 style="font-size: 1.1rem; color: var(--primary); letter-spacing: 1px;">QUICK DICTIONARY</h2>
+            <p style="color: var(--text-dim); font-size: 0.8rem;">Tra cứu nhanh từ vựng Anh - Anh</p>
         </div>
-
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <h2 style="margin:0;">Thư viện cá nhân</h2>
-                <p style="color: var(--text-dim); font-size: 0.9rem;">Chọn một bộ từ để bắt đầu học</p>
-            </div>
-            <button class="btn-base btn-primary" onclick="prepareAddPage()">+ TẠO NHÓM MỚI</button>
+        <div class="search-box" style="margin-top: 15px;">
+            <input type="text" id="search-input" placeholder="Nhập từ cần tra..." onkeypress="if(event.key==='Enter') searchWord()">
+            <button class="btn-base btn-primary" onclick="searchWord()" style="width: 120px;">TRA TỪ</button>
         </div>
-        <div id="folder-list" class="folder-grid"></div>
+        <div id="dict-result" class="dict-res" style="display:none; margin-top: 20px;"></div>
     </div>
 
-    <div id="page-add" class="page">
-        <button class="btn-base btn-outline" style="margin-bottom: 20px;" onclick="switchPage('page-home')">← QUAY LẠI</button>
-        <div class="glass-card">
-            <h2 id="add-title">Thiết lập bộ từ</h2>
-            <input type="text" id="new-group-name" placeholder="Tên bộ từ...">
+<div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-top: 40px;">
+    <div>
+        <h2 style="font-size: 1.6rem; margin-bottom: 5px;">Thư viện cá nhân</h2>
+        <p style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 8px;">Các bộ từ bạn đã tạo</p>
+        <p style="color: var(--primary); font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 6px; opacity: 0.9;">
+            <span style="background: rgba(56, 189, 248, 0.15); padding: 2px 8px; border-radius: 6px; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;">Lưu ý</span> 
+            Hãy tạo nhóm mới khi muốn học từ vựng của mình
+        </p>
+    </div>
+    
+    <input type="text" id="search-folder" placeholder="Tìm tên bộ từ..." oninput="renderDashboard()" 
+           style="max-width: 250px; padding: 10px 15px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white;">
+    
+    <button class="btn-base btn-primary" onclick="prepareAddPage()" style="padding: 10px 20px;">+ TẠO NHÓM MỚI</button>
+</div>
+
+    <div id="folder-list" class="folder-grid" style="margin-top: 25px;">
+        </div>
+</div>
+
+        <div id="page-add" class="page">
+            <div class="top-nav">
+                <button class="btn-base btn-outline" onclick="switchPage('page-home')">← QUAY LẠI</button>
+                <h2 id="add-title">Thiết lập bộ từ mới</h2>
+            </div>
+            <div class="glass-card">
+                <input type="text" id="new-group-name" placeholder="Tên bộ sưu tập..." style="margin-bottom: 25px;">
+                <div class="tab-group">
+                    <button class="tab-btn active" id="t-bulk" onclick="toggleInput('bulk')">Nhập nhanh</button>
+                    <button class="tab-btn" id="t-single" onclick="toggleInput('single')">Thủ công</button>
+                </div>
+                <div id="input-bulk">
+                    <textarea id="bulk-text" placeholder="Từ : Nghĩa 1 / Nghĩa 2..." style="height: 200px;"></textarea>
+                </div>
+                <div id="input-single" style="display:none;">
+                    <div id="single-rows-container"></div>
+                    <button class="btn-base btn-outline" style="width:100%; margin-top:15px; border-style:dashed;" onclick="addInputRow()">+ THÊM DÒNG MỚI</button>
+                </div>
+                <button class="btn-base btn-primary" style="width:100%; margin-top:40px; justify-content:center;" onclick="saveCollection()">LƯU VÀO THƯ VIỆN</button>
+            </div>
+        </div>
+
+        <div id="page-quiz" class="page">
+            <div style="display:flex; align-items:center; margin-bottom:40px; gap: 15px;">
+<button class="btn-base btn-outline" onclick="switchPage('page-home')">✕ THOÁT</button>
+<button class="btn-base btn-outline" style="color: var(--wrong); border-color: rgba(244, 63, 94, 0.2);" onclick="resetCurrentProgress()">↺ HỌC LẠI ĐẦU</button>
+                <div class="quiz-progress-outer" style="flex: 1;">
+                    <div id="p-bar" class="quiz-progress-inner"></div>
+                </div>
+                <span id="progress-text" style="font-weight: 700; color: var(--primary); font-size: 0.9rem; min-width: 45px;">0/0</span>
+                <div id="quiz-mode-badge" class="count-pill">TRẮC NGHIỆM</div>
+            </div>
+            <div class="glass-card" style="text-align:center;">
+                <p style="color:var(--text-dim); font-weight:700; font-size:0.8rem; letter-spacing:2px; margin-bottom:10px;">ĐỊNH NGHĨA / NGHĨA</p>
+                <div id="q-text" class="question-text"></div>
+                <div id="q-options" class="options-grid"></div>
+<div id="q-type-area" style="display:none; max-width:500px; margin: 0 auto;">
+    <input type="text" id="type-in" style="font-size:2.5rem; ..." placeholder="..." autocomplete="off" onkeypress="if(event.key==='Enter') checkTypeAnswer()">
+    <button class="btn-base btn-primary" style="width:100%; margin-top:30px; justify-content:center;" onclick="checkTypeAnswer()">KIỂM TRA</button>
+</div>
+                <button id="next-btn" class="btn-base btn-primary" style="display:none; width:100%; margin-top:40px; justify-content:center; background:white; color:black;" onclick="nextStep()">TIẾP THEO ➜</button>
+            </div>
+        </div>
+    <script>
+        // CẤU HÌNH FIREBASE (Giữ nguyên config của bạn)
+        const firebaseConfig = {
+            apiKey: "AIzaSyALi34WevE0G9d5FxlMDi13kVdQ7RxYJV8",
+            authDomain: "myvocabapp-650b2.firebaseapp.com",
+            databaseURL: "https://myvocabapp-650b2-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "myvocabapp-650b2",
+            storageBucket: "myvocabapp-650b2.firebasestorage.app",
+            messagingSenderId: "1064308414191",
+            appId: "1:1064308414191:web:3465e95f26ace452102d1a",
+            measurementId: "G-CL1C3DEN06"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const vocabRef = database.ref('vocab_data');
+
+        // BIẾN TOÀN CỤC
+        let db = [];
+        let session = { study: [], correct: null, idx: 0, currentFolderName: "" };
+        let correctPool = []; // Chứa từ đúng trắc nghiệm để đợi ôn tập tự luận
+// --- CÁC HÀM HỖ TRỢ LƯU TỪ SAI VĨNH VIỄN ---
+// --- CÁC HÀM HỖ TRỢ LƯU TỪ SAI VÀ TỪ ĐÃ THUỘC ---
+function saveWrongWord(wordObj) {
+    if (session.currentFolderName) {
+        database.ref(`wrong_words/${session.currentFolderName}/${wordObj.w}`).set(wordObj);
+    }
+}
+
+function removeWrongWord(wordW) {
+    if (session.currentFolderName) {
+        database.ref(`wrong_words/${session.currentFolderName}/${wordW}`).remove();
+    }
+}
+
+// MỚI: Lưu từ đã thuộc để không xuất hiện lại
+function saveMasteredWord(wordW) {
+    if (session.currentFolderName) {
+        database.ref(`mastered_words/${session.currentFolderName}/${wordW}`).set(true);
+    }
+}
+
+function removeMasteredWord(wordW) {
+    if (session.currentFolderName) {
+        database.ref(`mastered_words/${session.currentFolderName}/${wordW}`).remove();
+    }
+}
+
+// MỚI: Thuật toán tính độ chênh lệch ký tự (Levenshtein)
+function getEditDistance(a, b) {
+    if(a.length === 0) return b.length;
+    if(b.length === 0) return a.length;
+    let matrix = [];
+    for(let i = 0; i <= b.length; i++){ matrix[i] = [i]; }
+    for(let j = 0; j <= a.length; j++){ matrix[0][j] = j; }
+    for(let i = 1; i <= b.length; i++){
+        for(let j = 1; j <= a.length; j++){
+            if(b.charAt(i-1) === a.charAt(j-1)){
+                matrix[i][j] = matrix[i-1][j-1];
+            } else {
+                matrix[i][j] = Math.min(matrix[i-1][j-1] + 1, Math.min(matrix[i][j-1] + 1, matrix[i-1][j] + 1));
+            }
+        }
+    }
+    return matrix[b.length][a.length];
+}
+
+// MỚI: Kiểm tra xem có "gần đúng" không
+function isCloseEnough(val, ans) {
+    if (val === ans) return true;
+    let distance = getEditDistance(val, ans);
+    let maxLength = Math.max(val.length, ans.length);
+    // Cho phép sai: 0 lỗi (<5 ký tự), 1 lỗi (5-7 ký tự), 2 lỗi (>7 ký tự)
+    let allowedTypos = maxLength <= 4 ? 0 : (maxLength <= 7 ? 1 : 2); 
+    return distance <= allowedTypos;
+}
+        // 1. Hàm phát âm (Chỉ dùng cho Trắc nghiệm/Từ điển)
+        function speak(text) {
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        
+        // Chỉ phát âm thanh nếu KHÔNG ở trong trang Quiz
+        const quizPage = document.getElementById('page-quiz');
+        if (quizPage && quizPage.classList.contains('active')) {
+            return; // Thoát hàm, không nói gì cả
+        }
+
+        const msg = new SpeechSynthesisUtterance(text);
+        msg.lang = 'en-US';
+        msg.rate = 0.9;
+        window.speechSynthesis.speak(msg);
+    }
+}
+        // 2. Hàm trộn mảng
+        function shuffle(array) {
+            let arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        // 3. Hàm lưu tiến trình lên Firebase
+        function saveUserProgress() {
+            if (session.currentFolderName) {
+                database.ref('user_progress/' + session.currentFolderName).set({
+                    lastIndex: session.idx
+                });
+            }
+        }
+// Hàm xóa tiến độ và bắt đầu lại
+function resetCurrentProgress() {
+    if (confirm("Bạn có chắc chắn muốn xóa tiến độ và bắt đầu lại bộ từ này không? (Bao gồm cả các từ đã sai và đã thuộc)")) {
+        const originalGroup = db.find(g => g.name === session.currentFolderName);
+        if (originalGroup) {
+            session.study = shuffle([...originalGroup.words]);
+        }
+        
+        session.idx = 0;
+        correctPool = [];
+        
+        if (session.currentFolderName) {
+            const updates = {};
+            updates[`user_progress/${session.currentFolderName}`] = null;
+            updates[`wrong_words/${session.currentFolderName}`] = null;
+            updates[`mastered_words/${session.currentFolderName}`] = null; // Xóa danh sách đã thuộc
+
+            database.ref().update(updates)
+                .then(() => {
+                    alert("Đã làm mới bộ từ hoàn toàn!");
+                    nextStep();
+                })
+                .catch(err => {
+                    console.error("Lỗi khi xóa dữ liệu:", err);
+                    nextStep();
+                });
+        }
+    }
+}        // 4. Hàm tải tiến trình từ Firebase
+        async function loadUserProgress(folderName) {
+            try {
+                const snapshot = await database.ref('user_progress/' + folderName).once('value');
+                const data = snapshot.val();
+                return data ? data.lastIndex : 0;
+            } catch (e) { return 0; }
+        }
+        function switchPage(id) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            if(id === 'page-home') renderDashboard();
+        }
+
+        function prepareAddPage() {
+            session.editIndex = null;
+            document.getElementById('new-group-name').value = '';
+            document.getElementById('bulk-text').value = '';
+            document.getElementById('add-title').innerText = "Thiết lập bộ từ mới";
+            resetManualRows();
+            switchPage('page-add');
+        }
+
+        async function searchWord() {
+    const val = document.getElementById('search-input').value.trim();
+    const res = document.getElementById('dict-result');
+    if(!val) return;
+    
+    res.style.display = 'block';
+    res.innerHTML = '<p style="text-align:center; color:var(--text-dim);">Đang tra cứu...</p>';
+    
+    try {
+        const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${val}`);
+        const data = await response.json();
+        const cambridgeUrl = `https://dictionary.cambridge.org/vi/dictionary/english/${val}`;
+
+        if(data.title || !Array.isArray(data)) {
+            res.innerHTML = `
+                <div style="text-align:center; padding: 35px 20px; background: rgba(255, 255, 255, 0.02); border-radius: 20px; border: 1px dashed rgba(255, 255, 255, 0.1);">
+                    <p style="color:var(--text-dim); margin-bottom: 20px;">Không tìm thấy định nghĩa nhanh cho "<b>${val}</b>"</p>
+                    <a href="${cambridgeUrl}" target="_blank" class="btn-base btn-cambridge-glow">
+                        TRA CHI TIẾT TẠI CAMBRIDGE ➜
+                    </a>
+                </div>`;
+            return;
+        }
+
+        const entry = data[0];
+        const meaning = entry.meanings?.[0];
+        const definition = meaning?.definitions?.[0]?.definition || "Không có định nghĩa.";
+        const phonetics = entry.phonetics?.find(p => p.text)?.text || '';
+
+        res.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <h2 class="word-title" style="margin:0; font-size: 2.2rem;">${entry.word}</h2>
+                    <button onclick="speak('${entry.word}')" style="background:var(--primary); border:none; border-radius:50%; width:36px; height:36px; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="black"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+                    </button>
+                </div>
+                <span class="ipa-tag">${phonetics}</span>
+            </div>
             
-            <div class="tab-group">
-                <button class="tab-btn active" id="t-bulk" onclick="
+            <div style="border-left: 3px solid var(--primary); padding:15px 20px; background:rgba(255,255,255,0.03); border-radius: 0 12px 12px 0;">
+                <b style="color:var(--primary); text-transform:uppercase; font-size:0.7rem; letter-spacing:1px;">${meaning?.partOfSpeech || 'DEFINITION'}</b>
+                <p style="margin: 8px 0 20px 0; font-size: 1.05rem; color: var(--text-main);">${definition}</p>
+                
+                <a href="${cambridgeUrl}" target="_blank" class="btn-base btn-cambridge-glow" style="width: 100%; justify-content: center; font-size: 0.85rem;">
+                    XEM CHI TIẾT TẠI CAMBRIDGE ➜
+                </a>
+            </div>`;
+    } catch(e) { 
+        res.innerHTML = `<p style="color:var(--wrong); text-align:center;">Lỗi kết nối. <a href="https://dictionary.cambridge.org/vi/dictionary/english/${val}" target="_blank" style="color:white;">Mở Cambridge thủ công</a></p>`; 
+    }
+}
+        function renderDashboard() {
+    const list = document.getElementById('folder-list');
+    const searchTerm = document.getElementById('search-folder')?.value.toLowerCase() || "";
+    
+    // Lọc bộ từ theo ô tìm kiếm
+    const filteredDb = db.filter(group => group.name.toLowerCase().includes(searchTerm));
+
+    if (filteredDb.length === 0) {
+        list.innerHTML = `<p style="color:var(--text-dim); grid-column:1/-1; text-align:center; padding: 40px; border: 2px dashed rgba(255,255,255,0.05); border-radius:20px;">
+                          ${searchTerm ? 'Không tìm thấy bộ từ phù hợp!' : 'Thư viện trống. Hãy tạo bộ từ đầu tiên!'}</p>`;
+        return;
+    }
+
+    list.innerHTML = '';
+    filteredDb.forEach((group) => {
+        const realIndex = db.indexOf(group); 
+        const card = document.createElement('div');
+        card.className = 'glass-card folder-item';
+        card.onclick = async () => { 
+            session.currentFolderName = group.name;
+            
+            // 1. Lấy danh sách từ gốc
+            let baseWords = [...group.words]; 
+
+            // 2. Lấy dữ liệu từ Firebase
+            const wrongSnapshot = await database.ref(`wrong_words/${group.name}`).once('value');
+            const wrongData = wrongSnapshot.val();
+            
+            const masteredSnapshot = await database.ref(`mastered_words/${group.name}`).once('value');
+            const masteredData = masteredSnapshot.val();
+            const masteredWordsArray = masteredData ? Object.keys(masteredData) : [];
+
+            // 3. Lọc bỏ hoàn toàn những từ đã thuộc (đúng cả trắc nghiệm + tự luận)
+            baseWords = baseWords.filter(w => !masteredWordsArray.includes(w.w));
+
+            let finalStudyList = [];
+            if (wrongData) {
+                const wrongWordsArray = Object.values(wrongData);
+                const filteredWrong = wrongWordsArray.filter(w => !masteredWordsArray.includes(w.w));
+                
+                // Ý TƯỞNG: Những từ trong danh sách "Sai" (wrong_words) sẽ được ưu tiên
+                // xuất hiện dưới dạng Tự luận ngay hoặc trộn vào để học lại.
+                finalStudyList = shuffle([...filteredWrong, ...baseWords]); 
+            } else {
+                finalStudyList = shuffle(baseWords);
+            }
+            
+            if(finalStudyList.length === 0) {
+                alert("Chúc mừng! Bạn đã thuộc toàn bộ từ trong nhóm này.");
+                return;
+            }
+
+            session.study = finalStudyList;
+            session.idx = 0; 
+            correctPool = []; // Reset hàng chờ tự luận cho phiên mới
+            
+            switchPage('page-quiz'); 
+            nextStep(); 
+        };
+        // Tìm trong hàm renderDashboard và thay thế đoạn tạo nội dung card:
+card.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <span class="count-pill">${group.words.length} TỪ</span>
+        <div style="display:flex; gap:8px;">
+            <button onclick="event.stopPropagation(); editGroup(${realIndex})" style="background:rgba(56, 189, 248, 0.1); border:none; color:var(--primary); padding:6px; border-radius:8px; cursor:pointer;">✎</button>
+            <button onclick="event.stopPropagation(); deleteGroup(${realIndex})" style="background:rgba(244, 63, 94, 0.1); border:none; color:var(--wrong); padding:6px; border-radius:8px; cursor:pointer;">🗑</button>
+        </div>
+    </div>
+    <h3 style="font-size: 1.25rem; margin: 0; color: white;">${group.name}</h3>
+    <div style="margin-top:15px; font-size: 0.8rem; color: var(--primary); font-weight: 700;">HỌC NGAY →</div>
+`;
+        list.appendChild(card);
+    });
+}
+        function toggleInput(m) {
+            session.mode = m;
+            document.getElementById('input-bulk').style.display = m === 'bulk' ? 'block' : 'none';
+            document.getElementById('input-single').style.display = m === 'single' ? 'block' : 'none';
+            document.getElementById('t-bulk').classList.toggle('active', m === 'bulk');
+            document.getElementById('t-single').classList.toggle('active', m === 'single');
+        }
+
+        function addInputRow(w = '', m = '') {
+    const div = document.createElement('div');
+    div.className = 'manual-input-row';
+    // Đổi ô m-val từ <input> sang <textarea>
+    div.innerHTML = `
+        <input type="text" class="w-val" value="${w}" placeholder="Từ mới">
+        <textarea class="m-val" placeholder="Nghĩa">${m}</textarea>
+        <button class="btn-remove-row" onclick="this.parentElement.remove()">✕</button>
+    `;
+    document.getElementById('single-rows-container').appendChild(div);
+}
+
+        function resetManualRows() {
+            document.getElementById('single-rows-container').innerHTML = '';
+            for(let i=0; i<3; i++) addInputRow();
+        }
+
+function saveCollection() {
+    const name = document.getElementById('new-group-name').value.trim();
+    if(!name) return alert("Vui lòng nhập tên bộ từ!");
+    
+    let rawWords = [];
+
+    // Lấy từ Nhập nhanh
+    const bulkText = document.getElementById('bulk-text').value.trim();
+    if (bulkText) {
+        bulkText.split('\n').forEach(line => {
+            if(line.includes(':')) {
+                const [w, m] = line.split(':');
+                rawWords.push({ w: w.trim(), m: m.trim() });
+            }
+        });
+    }
+
+    // Lấy từ Nhập thủ công (bao gồm cả textarea mới)
+    document.querySelectorAll('.manual-input-row').forEach(row => {
+        const w = row.querySelector('.w-val')?.value.trim();
+        const m = row.querySelector('.m-val')?.value.trim();
+        if(w && m) rawWords.push({ w, m });
+    });
+
+    // KHỬ TRÙNG LẶP: Dựa trên từ (w) để không bị lặp từ trong cùng 1 bộ
+    const uniqueMap = new Map();
+    rawWords.forEach(item => {
+        uniqueMap.set(item.w.toLowerCase(), item);
+    });
+    const finalWords = Array.from(uniqueMap.values());
+
+    if(finalWords.length < 2) return alert("Cần ít nhất 2 từ khác nhau!");
+
+    // Cập nhật vào mảng db cục bộ
+    if(session.editIndex !== null) {
+        db[session.editIndex] = { name, words: finalWords };
+    } else {
+        db.push({ name, words: finalWords });
+    }
+
+    // Đồng bộ lên Firebase
+    vocabRef.set(db).then(() => {
+        alert("Đã lưu thành công!");
+        switchPage('page-home');
+        document.getElementById('new-group-name').value = '';
+        document.getElementById('bulk-text').value = '';
+        resetManualRows();
+    }).catch(err => alert("Lỗi lưu dữ liệu: " + err.message));
+}
+        function editGroup(i) {
+            session.editIndex = i;
+            const g = db[i];
+            document.getElementById('new-group-name').value = g.name;
+            document.getElementById('bulk-text').value = g.words.map(w => `${w.w} : ${w.m.replace(/\n/g, ', ')}`).join('\n');
+            document.getElementById('single-rows-container').innerHTML = '';
+            g.words.forEach(w => addInputRow(w.w, w.m));
+            addInputRow(); 
+            toggleInput('bulk');
+            document.getElementById('add-title').innerText = "Chỉnh sửa bộ từ";
+            switchPage('page-add');
+        }
+
+        function deleteGroup(i) {
+            if(confirm("Xóa bộ từ này?")) { db.splice(i, 1); vocabRef.set(db); }
+        }
+
+        
+// 1. Hàm chuyển câu hỏi (Xử lý logic ôn tập)
+function nextStep() {
+    // LỆNH MỚI: Dừng ngay lập tức mọi âm thanh đang phát từ câu trước
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+    }
+
+    if(session.idx >= session.study.length) {
+        alert("Chúc mừng! Bạn đã hoàn thành bài học.");
+        return switchPage('page-home');
+    }
+
+    document.getElementById('next-btn').style.display = 'none';
+    const inputEl = document.getElementById('type-in');
+    inputEl.value = '';
+    inputEl.disabled = false;
+    inputEl.style.color = 'white';
+    inputEl.classList.remove('shake');
+    
+    const oldHint = document.querySelector('.hint-text');
+    if(oldHint) oldHint.remove();
+
+    const isTyping = (correctPool.length > 0 && (session.idx + 1) % 3 === 0);
+    
+    if(isTyping) {
+        session.correct = correctPool.shift();
+        document.getElementById('quiz-mode-badge').innerText = "ÔN TẬP TỰ LUẬN";
+        // Phần này CHỈ hiện nghĩa (m), không có nút bấm phát âm (speak)
+        document.getElementById('q-text').innerHTML = `${session.correct.m}`; 
+        document.getElementById('q-options').style.display = 'none';
+        document.getElementById('q-type-area').style.display = 'block';
+        setTimeout(() => inputEl.focus(), 200);
+    } else {
+    session.correct = session.study[session.idx];
+    document.getElementById('quiz-mode-badge').innerText = "TRẮC NGHIỆM";
+    // CHỈ hiển thị nghĩa của từ, không còn nút bấm phát âm
+    document.getElementById('q-text').innerHTML = `${session.correct.m}`; 
+    
+    document.getElementById('q-options').style.display = 'grid';
+    document.getElementById('q-type-area').style.display = 'none';
+    renderOptions();
+}
+    const current = session.idx + 1;
+    document.getElementById('p-bar').style.width = `${(session.idx / session.study.length) * 100}%`;
+    document.getElementById('progress-text').innerText = `${current}/${session.study.length}`;
+}
+// 2. Hàm hiển thị đáp án trắc nghiệm
+function renderOptions() {
+    const box = document.getElementById('q-options');
+    box.innerHTML = '';
+    let allWords = db.flatMap(g => g.words).map(w => w.w);
+    let opposites = shuffle([...new Set(allWords.filter(w => w !== session.correct.w))]).slice(0, 3);
+    const choices = shuffle([session.correct.w, ...opposites]);
+
+    choices.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'option-card';
+        btn.innerText = opt;
+        btn.onclick = () => {
+    document.querySelectorAll('.option-card').forEach(b => b.disabled = true);
+    if(opt === session.correct.w) {
+        btn.classList.add('correct');
+        correctPool.push(session.correct); // Đưa vào hàng chờ để làm tự luận
+        
+        removeWrongWord(session.correct.w);
+        // Đã xóa saveMasteredWord ở đây để chỉ khi đúng tự luận mới coi là thuộc hẳn
+    } else {
+        btn.classList.add('wrong');
+        let retryPos = Math.min(session.idx + 7, session.study.length);
+        session.study.splice(retryPos, 0, session.correct);
+        
+        // MỚI: Trả lời sai thì lưu vào Firebase để lần sau học lại tiếp
+        saveWrongWord(session.correct);
+
+        document.querySelectorAll('.option-card').forEach(b => { 
+            if(b.innerText === session.correct.w) b.classList.add('correct'); 
+        });
+    }
+    session.idx++; 
+    saveUserProgress(); 
+    document.getElementById('next-btn').style.display = 'block';
+};
+        box.appendChild(btn);
+    });
+}
+function checkTypeAnswer() {
+    const inputEl = document.getElementById('type-in');
+    const val = inputEl.value.trim().toLowerCase();
+    const ans = session.correct.w.toLowerCase();
+    const nextBtn = document.getElementById('next-btn');
+    
+    inputEl.disabled = true; 
+    nextBtn.style.display = 'block';
+
+    // KIỂM TRA ĐÁP ÁN GẦN ĐÚNG
+    if(isCloseEnough(val, ans)) {
+        inputEl.style.color = 'var(--secondary)';
+        
+        // Nếu gần đúng nhưng có sai sót nhỏ, hiển thị từ chuẩn cho user biết
+        if(val !== ans && !document.querySelector('.hint-text')) {
+            const hint = document.createElement('div');
+            hint.className = 'hint-text';
+            hint.style.color = 'var(--secondary)'; // Hiện màu xanh báo hiệu được chấp nhận
+            hint.innerText = `Chấp nhận! Đáp án chuẩn: ${ans}`;
+            document.getElementById('q-type-area').appendChild(hint);
+        }
+        
+        removeWrongWord(session.correct.w);
+        saveMasteredWord(session.correct.w); // Xác nhận đã thuộc hoàn toàn
+    } else {
+        inputEl.classList.add('shake');
+        inputEl.style.color = 'var(--wrong)';
+        if(!document.querySelector('.hint-text')) {
+            const hint = document.createElement('div');
+            hint.className = 'hint-text';
+            hint.innerText = `Đáp án đúng là: ${ans}`;
+            document.getElementById('q-type-area').appendChild(hint);
+        }
+        let retryPos = Math.min(session.idx + 7, session.study.length);
+        session.study.splice(retryPos, 0, session.correct);
+        
+        saveWrongWord(session.correct);
+        removeMasteredWord(session.correct.w); // Sai tự luận thì gỡ khỏi danh sách đã thuộc
+    }
+    
+    // Đã xóa session.idx++ ở đây để khắc phục lỗi nhảy cóc câu hỏi trắc nghiệm
+    saveUserProgress(); 
+}
+        window.onload = () => {
+            resetManualRows();
+            vocabRef.on('value', (s) => { db = s.val() || []; renderDashboard(); });
+        };
+    </script>
+</body>
+</html>
